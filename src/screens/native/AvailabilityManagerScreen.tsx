@@ -7,7 +7,7 @@ import {
   Switch,
   StyleSheet,
 } from 'react-native';
-import { Save, Info, X, Plus, Check } from 'lucide-react';
+import { Save, Info, X, Plus, Check } from 'lucide-react-native';
 import { DaySchedule } from '../../types';
 import { INITIAL_SCHEDULE } from '../../data/mockData';
 import { Colors } from '../../theme/colors';

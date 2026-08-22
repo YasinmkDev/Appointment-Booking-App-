@@ -7,7 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { Mail, Lock, User, Store, ArrowRight, Sparkles, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, User, Store, ArrowRight, Sparkles, CheckCircle2, ShieldCheck } from 'lucide-react-native';
 import { UserRole, UserProfile } from '../../types';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';

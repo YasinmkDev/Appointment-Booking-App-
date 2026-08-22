@@ -6,7 +6,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react-native';
 import { StatusPill } from '../../components/native/TicketStub';
 import { INITIAL_TODAYS_AGENDA } from '../../data/mockData';
 import { Colors } from '../../theme/colors';

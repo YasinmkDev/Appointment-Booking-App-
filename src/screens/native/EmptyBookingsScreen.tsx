@@ -5,7 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { Ticket, ArrowRight, Compass } from 'lucide-react';
+import { Ticket, ArrowRight, Compass } from 'lucide-react-native';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 

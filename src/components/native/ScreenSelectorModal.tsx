@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet } from 'react-native';
-import { X, Check, ChevronRight } from 'lucide-react';
+import { X, Check, ChevronRight } from 'lucide-react-native';
 import { Screen, UserRole } from '../../types';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';

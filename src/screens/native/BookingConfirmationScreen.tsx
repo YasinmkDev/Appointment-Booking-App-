@@ -6,7 +6,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { CheckCircle, CalendarPlus, Check, QrCode, ArrowLeft } from 'lucide-react';
+import { CheckCircle, CalendarPlus, Check, QrCode, ArrowLeft } from 'lucide-react-native';
 import { Booking } from '../../types';
 import { PerforatedDivider, StatusPill } from '../../components/native/TicketStub';
 import { Colors } from '../../theme/colors';

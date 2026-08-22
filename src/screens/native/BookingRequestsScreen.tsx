@@ -6,7 +6,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { Check, X, Clock, Calendar } from 'lucide-react';
+import { Check, X, Clock, Calendar } from 'lucide-react-native';
 import { BookingRequest } from '../../types';
 import { INITIAL_PROVIDER_REQUESTS } from '../../data/mockData';
 import { Colors } from '../../theme/colors';

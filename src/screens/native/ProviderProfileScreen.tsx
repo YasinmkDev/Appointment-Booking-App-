@@ -7,7 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { Star, MapPin, Clock, DollarSign, ArrowRight } from 'lucide-react';
+import { Star, MapPin, Clock, DollarSign, ArrowRight } from 'lucide-react-native';
 import { Provider, Service } from '../../types';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';

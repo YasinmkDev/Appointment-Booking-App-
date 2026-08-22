@@ -12,7 +12,7 @@ import {
   StatusBar,
   StyleSheet,
 } from 'react-native';
-import { Smartphone, Monitor, Sparkles } from 'lucide-react';
+import { Smartphone, Monitor, Sparkles } from 'lucide-react-native';
 import {
   UserRole,
   Screen,

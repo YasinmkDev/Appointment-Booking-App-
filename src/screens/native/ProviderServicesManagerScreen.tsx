@@ -20,7 +20,7 @@ import {
   Check,
   X,
   Sliders,
-} from 'lucide-react';
+} from 'lucide-react-native';
 import { Service } from '../../types';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';

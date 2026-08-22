@@ -6,7 +6,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { Calendar, Clock } from 'lucide-react';
+import { Calendar, Clock } from 'lucide-react-native';
 import { Booking } from '../../types';
 import { StatusPill } from '../../components/native/TicketStub';
 import { Colors } from '../../theme/colors';

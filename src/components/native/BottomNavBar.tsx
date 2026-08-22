@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Compass, Ticket, Calendar, Clock, Bell, User, Layers } from 'lucide-react';
+import { Compass, Ticket, Calendar, Clock, Bell, User, Layers } from 'lucide-react-native';
 import { UserRole, Screen } from '../../types';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';

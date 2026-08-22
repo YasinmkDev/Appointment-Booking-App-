@@ -19,7 +19,7 @@ import {
   LogOut,
   ChevronRight,
   PlusCircle,
-} from 'lucide-react';
+} from 'lucide-react-native';
 import { UserProfile, UserRole } from '../../types';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';

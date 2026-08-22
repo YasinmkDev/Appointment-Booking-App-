@@ -21,7 +21,7 @@ import {
   Calendar,
   Layers,
   Info,
-} from 'lucide-react';
+} from 'lucide-react-native';
 import { Service, StudioSetupData, Provider } from '../../types';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';

@@ -8,7 +8,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { Search, Star, MapPin, X, ArrowRight } from 'lucide-react';
+import { Search, Star, MapPin, X, ArrowRight } from 'lucide-react-native';
 import { Provider } from '../../types';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';

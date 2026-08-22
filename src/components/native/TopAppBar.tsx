@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { ArrowLeft, Sparkles, User, Store } from 'lucide-react';
+import { ArrowLeft, Sparkles, User, Store } from 'lucide-react-native';
 import { UserRole, Screen } from '../../types';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
