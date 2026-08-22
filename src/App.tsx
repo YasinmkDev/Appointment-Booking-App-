@@ -8,10 +8,10 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   UserRole,
   Screen,
@@ -55,6 +55,7 @@ import { AvailabilityManagerScreen } from './screens/native/AvailabilityManagerS
 import { BookingRequestsScreen } from './screens/native/BookingRequestsScreen';
 
 export default function App() {
+  const insets = useSafeAreaInsets();
   const [role, setRole] = useState<UserRole>('customer');
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [isScreenModalOpen, setIsScreenModalOpen] = useState(false);
@@ -214,10 +215,10 @@ export default function App() {
   };
 
   return (
-    <SafeAreaView style={styles.outerContainer}>
+    <View style={styles.outerContainer}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.inkPlum} />
 
-      <View style={styles.appContainer}>
+      <View style={[styles.appContainer, { paddingTop: insets.top }]}> 
           <TopAppBar
             role={role}
             currentScreen={currentScreen}
@@ -229,7 +230,14 @@ export default function App() {
           />
 
           {/* Active Screen View */}
-          <View style={styles.screenViewport}>
+          <View
+            style={[
+              styles.screenViewport,
+              !['welcome', 'auth', 'studio_setup'].includes(currentScreen) && {
+                paddingBottom: 62 + insets.bottom,
+              },
+            ]}
+          >
             {/* Customer Screens */}
             {currentScreen === 'welcome' && (
               <WelcomeScreen onGetStarted={handleGetStarted} />
@@ -357,7 +365,7 @@ export default function App() {
         currentScreen={currentScreen}
         onSelectScreen={handleSelectScreenFromModal}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

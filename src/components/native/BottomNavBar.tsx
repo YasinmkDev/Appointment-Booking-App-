@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Compass, Ticket, Calendar, Clock, Bell, User, Layers } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserRole, Screen } from '../../types';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
@@ -20,13 +21,14 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
   pendingRequestsCount = 4,
   activeBookingsCount = 2,
 }) => {
+  const insets = useSafeAreaInsets();
   if (currentScreen === 'welcome' || currentScreen === 'auth' || currentScreen === 'studio_setup') {
     return null;
   }
 
   if (role === 'customer') {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { height: 62 + insets.bottom, paddingBottom: insets.bottom }]}>
         {/* Explore Tab */}
         <TouchableOpacity
           activeOpacity={0.7}
@@ -115,7 +117,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
 
   // Studio / Provider Navigation
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { height: 62 + insets.bottom, paddingBottom: insets.bottom }]}>
       {/* Today's Agenda */}
       <TouchableOpacity
         activeOpacity={0.7}
