@@ -33,7 +33,7 @@ export const BrowseProvidersScreen: React.FC<BrowseProvidersScreenProps> = ({
       provider.category.toLowerCase().includes(selectedCategory.toLowerCase());
     const matchesSearch =
       provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      provider.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      provider.bio.toLowerCase().includes(searchQuery.toLowerCase()) ||
       provider.category.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
