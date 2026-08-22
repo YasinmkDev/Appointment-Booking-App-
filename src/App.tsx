@@ -12,7 +12,6 @@ import {
   StatusBar,
   StyleSheet,
 } from 'react-native';
-import { Smartphone, Monitor, Sparkles } from 'lucide-react-native';
 import {
   UserRole,
   Screen,
@@ -59,7 +58,6 @@ export default function App() {
   const [role, setRole] = useState<UserRole>('customer');
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [isScreenModalOpen, setIsScreenModalOpen] = useState(false);
-  const [deviceFrameMode, setDeviceFrameMode] = useState(true);
 
   // App & User State
   const [user, setUser] = useState<UserProfile>(INITIAL_USER_PROFILE);
@@ -219,67 +217,7 @@ export default function App() {
     <SafeAreaView style={styles.outerContainer}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.inkPlum} />
 
-      {/* Top Banner Toolbar for Presentation / Evaluation */}
-      <View style={styles.topBanner}>
-        <View style={styles.bannerLeft}>
-          <Text style={styles.bannerLogo}>BookEase</Text>
-          <Text style={styles.bannerDivider}>|</Text>
-          <Text style={styles.bannerTagline}>React Native • Expo Android</Text>
-        </View>
-
-        <View style={styles.bannerRight}>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setIsScreenModalOpen(true)}
-            style={styles.navTriggerBtn}
-          >
-            <Sparkles size={13} color={Colors.inkPlum} />
-            <Text style={styles.navTriggerText}>Screen Navigator (15)</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setDeviceFrameMode(!deviceFrameMode)}
-            style={styles.frameToggleBtn}
-          >
-            {deviceFrameMode ? (
-              <>
-                <Monitor size={13} color={Colors.warmAlabaster} />
-                <Text style={styles.frameToggleText}>Full View</Text>
-              </>
-            ) : (
-              <>
-                <Smartphone size={13} color={Colors.warmAlabaster} />
-                <Text style={styles.frameToggleText}>Android Frame</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Main App Container */}
-      <View style={styles.centerContainer}>
-        <View
-          style={[
-            styles.appContainer,
-            deviceFrameMode ? styles.frameModeContainer : styles.fullModeContainer,
-          ]}
-        >
-          {/* Android Phone Status Bar (Frame Mode) */}
-          {deviceFrameMode && (
-            <View style={styles.mockStatusBar}>
-              <Text style={styles.statusTime}>9:41</Text>
-              <View style={styles.cameraPunchhole} />
-              <View style={styles.statusIcons}>
-                <Text style={styles.status5G}>5G</Text>
-                <View style={styles.batteryIcon}>
-                  <View style={styles.batteryFill} />
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Top App Bar */}
+      <View style={styles.appContainer}>
           <TopAppBar
             role={role}
             currentScreen={currentScreen}
@@ -410,13 +348,6 @@ export default function App() {
             activeBookingsCount={bookings.filter((b) => !b.isPast).length}
           />
 
-          {/* Android Navigation Pill in Frame Mode */}
-          {deviceFrameMode && (
-            <View style={styles.androidNavPillContainer}>
-              <View style={styles.androidNavPill} />
-            </View>
-          )}
-        </View>
       </View>
 
       {/* Screen Selection Modal */}
@@ -508,6 +439,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   appContainer: {
+    flex: 1,
     width: '100%',
     backgroundColor: Colors.warmAlabaster,
     position: 'relative',
