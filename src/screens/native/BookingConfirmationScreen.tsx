@@ -5,8 +5,10 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Alert,
 } from 'react-native';
-import { CheckCircle, CalendarPlus, Check, QrCode, ArrowLeft } from 'lucide-react-native';
+import { CheckCircle, CalendarPlus, Check, QrCode } from 'lucide-react-native';
+import * as Calendar from 'expo-calendar';
 import { Booking } from '../../types';
 import { PerforatedDivider, StatusPill } from '../../components/native/TicketStub';
 import { Colors } from '../../theme/colors';
@@ -24,10 +26,43 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
   onViewMyBookings,
 }) => {
   const [addedToCalendar, setAddedToCalendar] = useState(false);
+  const [calendarLoading, setCalendarLoading] = useState(false);
 
-  const handleAddCalendar = () => {
-    setAddedToCalendar(true);
-    setTimeout(() => setAddedToCalendar(false), 3000);
+  const handleAddCalendar = async () => {
+    setCalendarLoading(true);
+    try {
+      const { status } = await Calendar.requestCalendarPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Calendar access is needed to add this appointment.');
+        return;
+      }
+
+      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+      // Prefer the default calendar; fall back to first writable one
+      const target =
+        calendars.find((c) => c.allowsModifications && c.source?.isLocalAccount) ??
+        calendars.find((c) => c.allowsModifications);
+
+      if (!target) {
+        Alert.alert('No Calendar', 'No writable calendar found on this device.');
+        return;
+      }
+
+      await Calendar.createEventAsync(target.id, {
+        title: `${booking.serviceName} @ ${booking.providerName}`,
+        startDate: new Date(booking.startISO),
+        endDate: new Date(booking.endISO),
+        location: undefined,
+        notes: `Booking ref: ${booking.refCode}`,
+        alarms: [{ relativeOffset: -60 }], // 1 hour reminder
+      });
+
+      setAddedToCalendar(true);
+    } catch {
+      Alert.alert('Error', 'Could not add to calendar. Please try again.');
+    } finally {
+      setCalendarLoading(false);
+    }
   };
 
   return (
@@ -82,11 +117,10 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
 
             <View style={styles.statusContainer}>
               <Text style={styles.stubLabel}>STATUS</Text>
-              <StatusPill status="confirmed" />
+              <StatusPill status={booking.status} />
             </View>
           </View>
 
-          {/* Decorative Barcode / QR Stamp Box */}
           <View style={styles.qrStampBox}>
             <View style={styles.qrLeft}>
               <QrCode size={30} color={Colors.inkPlum} />
@@ -95,7 +129,20 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
                 <Text style={styles.qrCodeSub}>PRESENT AT CHECK-IN</Text>
               </View>
             </View>
-            <Text style={styles.qrPrice}>${booking.price.toFixed(2)}</Text>
+            <View style={styles.qrRight}>
+              <Text style={styles.qrPrice}>${booking.price.toFixed(2)}</Text>
+              <View style={[
+                styles.paymentBadge,
+                booking.paymentStatus === 'paid' ? styles.paymentBadgePaid : styles.paymentBadgeUnpaid,
+              ]}>
+                <Text style={[
+                  styles.paymentBadgeText,
+                  booking.paymentStatus === 'paid' ? styles.paymentBadgeTextPaid : styles.paymentBadgeTextUnpaid,
+                ]}>
+                  {booking.paymentStatus === 'paid' ? 'PAID' : 'PAY AT STUDIO'}
+                </Text>
+              </View>
+            </View>
           </View>
 
           {/* Action Buttons */}
@@ -103,17 +150,20 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={handleAddCalendar}
-              style={styles.calendarButton}
+              disabled={addedToCalendar || calendarLoading}
+              style={[styles.calendarButton, addedToCalendar && styles.calendarButtonDone]}
             >
               {addedToCalendar ? (
                 <>
                   <Check size={16} color={Colors.marigoldLight} />
-                  <Text style={styles.calendarButtonText}>Added to Device Calendar</Text>
+                  <Text style={styles.calendarButtonText}>Added to Calendar</Text>
                 </>
               ) : (
                 <>
                   <CalendarPlus size={16} color={Colors.marigoldLight} />
-                  <Text style={styles.calendarButtonText}>Add to Calendar</Text>
+                  <Text style={styles.calendarButtonText}>
+                    {calendarLoading ? 'Adding...' : 'Add to Calendar'}
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -309,6 +359,13 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: Colors.slate,
   },
+  qrRight: { alignItems: 'flex-end', gap: 4 },
+  paymentBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3, borderWidth: 1 },
+  paymentBadgePaid: { backgroundColor: Colors.sageLight, borderColor: Colors.sageTeal },
+  paymentBadgeUnpaid: { backgroundColor: Colors.marigoldFaded, borderColor: Colors.marigold },
+  paymentBadgeText: { fontFamily: Fonts.mono, fontSize: 8, fontWeight: '700' },
+  paymentBadgeTextPaid: { color: Colors.sageDark },
+  paymentBadgeTextUnpaid: { color: Colors.marigoldDeep },
   qrPrice: {
     fontFamily: Fonts.mono,
     fontSize: 14,
@@ -328,6 +385,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
   },
+  calendarButtonDone: { backgroundColor: Colors.sageDark },
   calendarButtonText: {
     fontFamily: Fonts.sans,
     fontSize: 12,

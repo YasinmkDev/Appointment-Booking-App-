@@ -23,6 +23,8 @@ import {
   Info,
 } from 'lucide-react-native';
 import { Service, StudioSetupData, Provider } from '../../types';
+import { useProviderStore } from '../../store/providerStore';
+import { AvatarPicker } from '../../components/native/AvatarPicker';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 
@@ -36,6 +38,7 @@ export const StudioSetupScreen: React.FC<StudioSetupScreenProps> = ({
   onCancel,
 }) => {
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const setSchedule = useProviderStore((s) => s.setSchedule);
 
   // Step 1: Details
   const [studioName, setStudioName] = useState('Aura Botanica Studio');
@@ -43,6 +46,9 @@ export const StudioSetupScreen: React.FC<StudioSetupScreenProps> = ({
   const [address, setAddress] = useState('142 Hawthorne Blvd, Suite 2B');
   const [bio, setBio] = useState(
     'Artisanal scalp therapy and organic botanicals tailored to slow wellness and precision cutcraft.'
+  );
+  const [coverImage, setCoverImage] = useState(
+    'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=80'
   );
 
   // Step 2: Services
@@ -115,14 +121,28 @@ export const StudioSetupScreen: React.FC<StudioSetupScreenProps> = ({
       rating: 5.0,
       reviewCount: 1,
       distance: '0.5 mi away',
+      address: address.trim(),
       bio: bio.trim() || 'Welcome to our studio booking ledger.',
-      image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=80',
+      image: coverImage,
       nextAvailable: 'TOMORROW, 10:00 AM',
       services: services,
       slotIntervalMinutes: slotInterval,
       bufferMinutes: bufferTime,
       instantConfirmation: instantConfirmation,
+      timezone: 'America/New_York',
+      isVerified: false,
     };
+
+    // Seed a default schedule for the new studio
+    setSchedule([
+      { day: 'Monday',    dayIndex: 1, enabled: true,  slots: [{ start: '09:00 AM', end: '05:00 PM' }] },
+      { day: 'Tuesday',   dayIndex: 2, enabled: true,  slots: [{ start: '09:00 AM', end: '05:00 PM' }] },
+      { day: 'Wednesday', dayIndex: 3, enabled: true,  slots: [{ start: '09:00 AM', end: '05:00 PM' }] },
+      { day: 'Thursday',  dayIndex: 4, enabled: true,  slots: [{ start: '09:00 AM', end: '05:00 PM' }] },
+      { day: 'Friday',    dayIndex: 5, enabled: true,  slots: [{ start: '09:00 AM', end: '03:00 PM' }] },
+      { day: 'Saturday',  dayIndex: 6, enabled: false, slots: [] },
+      { day: 'Sunday',    dayIndex: 0, enabled: false, slots: [] },
+    ]);
 
     onCompleteSetup(newProvider);
   };
@@ -174,6 +194,16 @@ export const StudioSetupScreen: React.FC<StudioSetupScreenProps> = ({
       {/* STEP 1: STUDIO DETAILS */}
       {currentStep === 1 && (
         <View style={styles.stepCard}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>STUDIO COVER PHOTO</Text>
+            <AvatarPicker
+              uri={coverImage}
+              size={80}
+              onPicked={setCoverImage}
+              label="Tap to change cover photo"
+            />
+          </View>
+
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>STUDIO NAME</Text>
             <TextInput

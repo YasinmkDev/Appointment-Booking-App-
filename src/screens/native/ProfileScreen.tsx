@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  Image,
   StyleSheet,
 } from 'react-native';
 import {
@@ -20,7 +19,11 @@ import {
   ChevronRight,
   PlusCircle,
 } from 'lucide-react-native';
-import { UserProfile, UserRole } from '../../types';
+import { UserProfile } from '../../types';
+import { useProviderStore } from '../../store/providerStore';
+import { useBookingStore } from '../../store/bookingStore';
+import { useAuthStore } from '../../store/authStore';
+import { AvatarPicker } from '../../components/native/AvatarPicker';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 
@@ -41,6 +44,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onViewEmptyBookings,
   onSignOut,
 }) => {
+  const pendingCount = useProviderStore((s) => s.getPendingCount());
+  const activeBookings = useBookingStore((s) => s.getActiveCount());
+  const setUser = useAuthStore((s) => s.setUser);
+
+  const handleAvatarPicked = (uri: string) => setUser({ ...user, avatar: uri });
+
   return (
     <ScrollView
       style={styles.container}
@@ -59,7 +68,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         {/* Member Profile Row */}
         <View style={styles.profileRow}>
-          <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
+          <AvatarPicker uri={user.avatar} size={64} onPicked={handleAvatarPicked} label="" />
           <View style={styles.profileInfo}>
             <Text style={styles.userName}>{user.name}</Text>
             <Text style={styles.userEmail}>{user.email}</Text>
@@ -84,7 +93,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             onPress={onViewMyBookings}
             style={styles.statBox}
           >
-            <Text style={styles.statNumber}>{user.activePassesCount}</Text>
+            <Text style={styles.statNumber}>{activeBookings}</Text>
             <Text style={styles.statLabel}>Active Passes</Text>
           </TouchableOpacity>
 
@@ -164,7 +173,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               {user.studioName || 'Wren & Co. Studio'}
             </Text>
             <Text style={styles.activeStudioCategory}>
-              {user.studioCategory || 'Boutique Hair Studio'} • 4 Pending Requests
+              {user.studioCategory || 'Boutique Hair Studio'} • {pendingCount} Pending Requests
             </Text>
 
             <TouchableOpacity
@@ -302,13 +311,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 14,
     gap: 12,
-  },
-  avatarImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 2,
-    borderColor: Colors.inkPlum,
   },
   profileInfo: {
     flex: 1,

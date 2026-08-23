@@ -1,4 +1,4 @@
-import { Provider, Booking, BookingRequest, DaySchedule, TimeSlot } from '../types';
+import { Provider, Booking, BookingRequest, DaySchedule, TimeSlot, AgendaItem } from '../types';
 
 export const INITIAL_PROVIDERS: Provider[] = [
   {
@@ -11,6 +11,12 @@ export const INITIAL_PROVIDERS: Provider[] = [
     bio: 'Specializing in modern cuts and holistic color treatments in a calm, focused environment.',
     image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=80',
     nextAvailable: 'WED, 10:30 AM',
+    slotIntervalMinutes: 30,
+    bufferMinutes: 10,
+    instantConfirmation: true,
+    timezone: 'America/New_York',
+    address: '142 Hawthorne Blvd, Suite 2B',
+    isVerified: true,
     services: [
       {
         id: 'wren-cut',
@@ -19,6 +25,8 @@ export const INITIAL_PROVIDERS: Provider[] = [
         price: 85.0,
         durationMinutes: 60,
         category: 'Hair',
+        bufferMinutes: 10,
+        isActive: true,
       },
       {
         id: 'wren-color',
@@ -27,6 +35,8 @@ export const INITIAL_PROVIDERS: Provider[] = [
         price: 120.0,
         durationMinutes: 90,
         category: 'Color',
+        bufferMinutes: 15,
+        isActive: true,
       },
       {
         id: 'wren-treatment',
@@ -35,6 +45,8 @@ export const INITIAL_PROVIDERS: Provider[] = [
         price: 45.0,
         durationMinutes: 30,
         category: 'Treatment',
+        bufferMinutes: 10,
+        isActive: true,
       },
       {
         id: 'wren-facial',
@@ -43,6 +55,8 @@ export const INITIAL_PROVIDERS: Provider[] = [
         price: 95.0,
         durationMinutes: 50,
         category: 'Wellness',
+        bufferMinutes: 10,
+        isActive: true,
       },
     ],
   },
@@ -56,6 +70,11 @@ export const INITIAL_PROVIDERS: Provider[] = [
     bio: 'Holistic massage therapies and mindful relaxation in a tranquil, nature-inspired environment.',
     image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=800&q=80',
     nextAvailable: 'TUE, 10:00 AM',
+    slotIntervalMinutes: 60,
+    bufferMinutes: 15,
+    instantConfirmation: false,
+    timezone: 'America/New_York',
+    isVerified: true,
     services: [
       {
         id: 'serene-deep',
@@ -64,6 +83,8 @@ export const INITIAL_PROVIDERS: Provider[] = [
         price: 110.0,
         durationMinutes: 60,
         category: 'Massage',
+        bufferMinutes: 15,
+        isActive: true,
       },
       {
         id: 'serene-hot-stone',
@@ -72,6 +93,8 @@ export const INITIAL_PROVIDERS: Provider[] = [
         price: 135.0,
         durationMinutes: 75,
         category: 'Massage',
+        bufferMinutes: 15,
+        isActive: true,
       },
     ],
   },
@@ -85,6 +108,11 @@ export const INITIAL_PROVIDERS: Provider[] = [
     bio: 'Precision cutting, bespoke color, and high-end styling in an intimate, modern studio setting.',
     image: 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=800&q=80',
     nextAvailable: 'WED, 2:30 PM',
+    slotIntervalMinutes: 30,
+    bufferMinutes: 10,
+    instantConfirmation: true,
+    timezone: 'America/New_York',
+    isVerified: true,
     services: [
       {
         id: 'lum-cut',
@@ -93,6 +121,8 @@ export const INITIAL_PROVIDERS: Provider[] = [
         price: 95.0,
         durationMinutes: 60,
         category: 'Hair',
+        bufferMinutes: 10,
+        isActive: true,
       },
       {
         id: 'lum-balayage',
@@ -101,6 +131,8 @@ export const INITIAL_PROVIDERS: Provider[] = [
         price: 160.0,
         durationMinutes: 120,
         category: 'Color',
+        bufferMinutes: 15,
+        isActive: true,
       },
     ],
   },
@@ -114,6 +146,11 @@ export const INITIAL_PROVIDERS: Provider[] = [
     bio: 'Small group yoga, reformer pilates, and mindful movement classes designed for holistic strength.',
     image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=800&q=80',
     nextAvailable: 'TODAY, 5:00 PM',
+    slotIntervalMinutes: 50,
+    bufferMinutes: 10,
+    instantConfirmation: true,
+    timezone: 'America/New_York',
+    isVerified: false,
     services: [
       {
         id: 'flow-reformer',
@@ -122,23 +159,22 @@ export const INITIAL_PROVIDERS: Provider[] = [
         price: 80.0,
         durationMinutes: 50,
         category: 'Pilates',
+        bufferMinutes: 10,
+        isActive: true,
       },
     ],
   },
 ];
 
 export const TIME_SLOTS: TimeSlot[] = [
-  // Morning
   { id: 'm1', time: '08:00 AM', period: 'morning', available: true },
   { id: 'm2', time: '09:00 AM', period: 'morning', available: true },
   { id: 'm3', time: '10:30 AM', period: 'morning', available: true },
   { id: 'm4', time: '11:00 AM', period: 'morning', available: true },
-  // Afternoon
   { id: 'a1', time: '12:30 PM', period: 'afternoon', available: true },
   { id: 'a2', time: '01:00 PM', period: 'afternoon', available: true },
   { id: 'a3', time: '02:30 PM', period: 'afternoon', available: true },
   { id: 'a4', time: '04:00 PM', period: 'afternoon', available: true },
-  // Evening
   { id: 'e1', time: '06:00 PM', period: 'evening', available: false },
   { id: 'e2', time: '07:30 PM', period: 'evening', available: true },
 ];
@@ -149,99 +185,135 @@ export const INITIAL_BOOKINGS: Booking[] = [
     refCode: 'BKE-7892X',
     providerId: 'wren-co',
     providerName: 'Wren & Co. Studio',
+    serviceId: 'wren-cut',
     serviceName: "Men's Haircut & Beard Trim",
     date: 'OCT 24, 2024',
     time: '10:00 - 11:00 AM',
+    startISO: '2024-10-24T10:00:00.000Z',
+    endISO: '2024-10-24T11:00:00.000Z',
     duration: '60 min',
     price: 85.0,
     status: 'confirmed',
+    paymentStatus: 'paid',
+    createdAt: '2024-10-20T14:30:00.000Z',
   },
   {
     id: 'bk-2',
     refCode: 'BKE-4401M',
     providerId: 'serene-wellness',
     providerName: 'Serene Spa & Wellness',
+    serviceId: 'serene-deep',
     serviceName: 'Deep Tissue Massage (60 Min)',
     date: 'NOV 02, 2024',
     time: '02:30 - 03:30 PM',
+    startISO: '2024-11-02T14:30:00.000Z',
+    endISO: '2024-11-02T15:30:00.000Z',
     duration: '60 min',
     price: 110.0,
     status: 'pending',
+    paymentStatus: 'unpaid',
+    createdAt: '2024-10-28T09:15:00.000Z',
   },
   {
     id: 'bk-3',
     refCode: 'BKE-1120D',
     providerId: 'lumiere-hair',
-    providerName: 'Bright Smiles Clinic',
-    serviceName: 'Dental Cleaning',
+    providerName: 'Lumière Hair Artistry',
+    serviceId: 'lum-cut',
+    serviceName: 'Signature Cut & Styling',
     date: 'SEP 15, 2024',
     time: '09:00 - 10:00 AM',
+    startISO: '2024-09-15T09:00:00.000Z',
+    endISO: '2024-09-15T10:00:00.000Z',
     duration: '60 min',
     price: 90.0,
     status: 'completed',
+    paymentStatus: 'paid',
     isPast: true,
+    createdAt: '2024-09-10T11:00:00.000Z',
   },
   {
     id: 'bk-4',
     refCode: 'BKE-9932G',
     providerId: 'flow-state',
-    providerName: 'Melody Music Studios',
-    serviceName: 'Guitar Lesson',
+    providerName: 'Flow State Movement',
+    serviceId: 'flow-reformer',
+    serviceName: 'Private Reformer Session',
     date: 'AUG 28, 2024',
     time: '04:15 - 05:00 PM',
+    startISO: '2024-08-28T16:15:00.000Z',
+    endISO: '2024-08-28T17:00:00.000Z',
     duration: '45 min',
     price: 65.0,
     status: 'completed',
+    paymentStatus: 'paid',
     isPast: true,
+    createdAt: '2024-08-22T08:00:00.000Z',
   },
 ];
 
 export const INITIAL_PROVIDER_REQUESTS: BookingRequest[] = [
   {
     id: 'req-1',
+    bookingId: 'bk-req-1',
     customerName: 'Sarah Jenkins',
     customerAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80',
     serviceName: 'Deep Tissue Massage',
+    serviceId: 'serene-deep',
     durationMinutes: 60,
     date: 'Oct 14, 2024',
     timeRange: '14:00 - 15:00',
+    startISO: '2024-10-14T14:00:00.000Z',
     status: 'pending',
     isNew: true,
+    price: 110.0,
   },
   {
     id: 'req-2',
+    bookingId: 'bk-req-2',
     customerName: 'Marcus Thorne',
     initials: 'M',
     serviceName: 'Initial Consultation',
+    serviceId: 'wren-cut',
     durationMinutes: 30,
     date: 'Oct 15, 2024',
     timeRange: '09:30 - 10:00',
+    startISO: '2024-10-15T09:30:00.000Z',
     status: 'pending',
+    price: 35.0,
   },
   {
     id: 'req-3',
+    bookingId: 'bk-req-3',
     customerName: 'Claire Beauchamp',
     customerAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
     serviceName: 'Haircut & Color Gloss',
+    serviceId: 'wren-color',
     durationMinutes: 90,
     date: 'Oct 16, 2024',
     timeRange: '11:00 - 12:30',
+    startISO: '2024-10-16T11:00:00.000Z',
     status: 'pending',
     isNew: true,
+    price: 120.0,
   },
   {
     id: 'req-4',
+    bookingId: 'bk-req-4',
     customerName: 'David Kim',
     initials: 'D',
     serviceName: 'Intensive Scalp Treatment',
+    serviceId: 'wren-treatment',
     durationMinutes: 45,
     date: 'Oct 17, 2024',
     timeRange: '15:30 - 16:15',
+    startISO: '2024-10-17T15:30:00.000Z',
     status: 'pending',
+    price: 45.0,
   },
 ];
 
-export const INITIAL_TODAYS_AGENDA = [
+export const INITIAL_TODAYS_AGENDA: AgendaItem[] = [
   {
     id: 'ag-1',
     time: '09:00 AM',
@@ -250,6 +322,7 @@ export const INITIAL_TODAYS_AGENDA = [
     service: 'Signature Studio Consultation',
     status: 'Upcoming',
     statusType: 'upcoming',
+    bookingId: 'bk-1',
   },
   {
     id: 'ag-2',
@@ -260,6 +333,7 @@ export const INITIAL_TODAYS_AGENDA = [
     status: 'Arrived',
     statusType: 'arrived',
     active: true,
+    bookingId: 'bk-2',
   },
   {
     id: 'ag-3',
@@ -269,6 +343,7 @@ export const INITIAL_TODAYS_AGENDA = [
     service: 'Material Selection Review',
     status: 'Upcoming',
     statusType: 'upcoming',
+    bookingId: 'bk-3',
   },
   {
     id: 'ag-4',
@@ -279,48 +354,26 @@ export const INITIAL_TODAYS_AGENDA = [
     status: 'Canceled',
     statusType: 'canceled',
     canceled: true,
+    bookingId: 'bk-4',
   },
 ];
 
 export const INITIAL_SCHEDULE: DaySchedule[] = [
-  {
-    day: 'Monday',
-    enabled: true,
-    slots: [{ start: '09:00 AM', end: '05:00 PM' }],
-  },
-  {
-    day: 'Tuesday',
-    enabled: true,
-    slots: [{ start: '09:00 AM', end: '05:00 PM' }],
-  },
-  {
-    day: 'Wednesday',
-    enabled: false,
-    slots: [{ start: '09:00 AM', end: '05:00 PM' }],
-  },
-  {
-    day: 'Thursday',
-    enabled: true,
-    slots: [{ start: '10:00 AM', end: '06:00 PM' }],
-  },
+  { day: 'Monday', dayIndex: 1, enabled: true, slots: [{ start: '09:00 AM', end: '05:00 PM' }] },
+  { day: 'Tuesday', dayIndex: 2, enabled: true, slots: [{ start: '09:00 AM', end: '05:00 PM' }] },
+  { day: 'Wednesday', dayIndex: 3, enabled: false, slots: [{ start: '09:00 AM', end: '05:00 PM' }] },
+  { day: 'Thursday', dayIndex: 4, enabled: true, slots: [{ start: '10:00 AM', end: '06:00 PM' }] },
   {
     day: 'Friday',
+    dayIndex: 5,
     enabled: true,
     slots: [
       { start: '09:00 AM', end: '01:00 PM' },
       { start: '02:00 PM', end: '05:00 PM' },
     ],
   },
-  {
-    day: 'Saturday',
-    enabled: false,
-    slots: [{ start: '10:00 AM', end: '02:00 PM' }],
-  },
-  {
-    day: 'Sunday',
-    enabled: false,
-    slots: [],
-  },
+  { day: 'Saturday', dayIndex: 6, enabled: false, slots: [{ start: '10:00 AM', end: '02:00 PM' }] },
+  { day: 'Sunday', dayIndex: 0, enabled: false, slots: [] },
 ];
 
 export const INITIAL_USER_PROFILE = {
@@ -381,4 +434,3 @@ export const INITIAL_STUDIO_SERVICES: import('../types').Service[] = [
     isActive: true,
   },
 ];
-

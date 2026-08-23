@@ -1,54 +1,43 @@
 /**
  * BookEase - Tactile Mobile Appointment Ledger
- * React Native / Expo Android Architecture
+ * React Native / Expo — Zustand-powered architecture
  */
 
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StatusBar,
-  StyleSheet,
-} from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StatusBar, StyleSheet, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  UserRole,
-  Screen,
-  Provider,
-  Service,
-  TimeSlot,
-  Booking,
-  UserProfile,
-} from './types';
-import {
-  INITIAL_PROVIDERS,
-  INITIAL_BOOKINGS,
-  INITIAL_USER_PROFILE,
-  INITIAL_STUDIO_SERVICES,
-} from './data/mockData';
-import { Colors } from './theme/colors';
-import { Fonts } from './theme/fonts';
 
-// Native Layout & Navigation Components
+import { Screen, Provider, Service, TimeSlot, UserProfile, UserRole, PaymentMethod } from './types';
+import { Colors } from './theme/colors';
+import { registerForPushNotifications, scheduleBookingReminder } from './services/pushNotifications';
+
+// Stores
+import { useAuthStore } from './store/authStore';
+import { useBookingStore } from './store/bookingStore';
+import { useProviderStore } from './store/providerStore';
+
+// Layout Components
 import { TopAppBar } from './components/native/TopAppBar';
 import { BottomNavBar } from './components/native/BottomNavBar';
 import { ScreenSelectorModal } from './components/native/ScreenSelectorModal';
+import { NotificationBanner } from './components/native/NotificationBanner';
 
-// Native Customer Screens
+// Customer Screens
 import { WelcomeScreen } from './screens/native/WelcomeScreen';
 import { AuthScreen } from './screens/native/AuthScreen';
 import { BrowseProvidersScreen } from './screens/native/BrowseProvidersScreen';
 import { ProviderProfileScreen } from './screens/native/ProviderProfileScreen';
 import { ServiceDateSelectionScreen } from './screens/native/ServiceDateSelectionScreen';
 import { TimeSlotSelectionScreen } from './screens/native/TimeSlotSelectionScreen';
+import { PaymentScreen } from './screens/native/PaymentScreen';
+import { ReviewScreen } from './screens/native/ReviewScreen';
 import { BookingConfirmationScreen } from './screens/native/BookingConfirmationScreen';
 import { MyBookingsScreen } from './screens/native/MyBookingsScreen';
 import { EmptyBookingsScreen } from './screens/native/EmptyBookingsScreen';
 import { ProfileScreen } from './screens/native/ProfileScreen';
 import { StudioSetupScreen } from './screens/native/StudioSetupScreen';
 
-// Native Provider Screens
+// Provider Screens
 import { ProviderDashboardScreen } from './screens/native/ProviderDashboardScreen';
 import { ProviderServicesManagerScreen } from './screens/native/ProviderServicesManagerScreen';
 import { AvailabilityManagerScreen } from './screens/native/AvailabilityManagerScreen';
@@ -56,309 +45,318 @@ import { BookingRequestsScreen } from './screens/native/BookingRequestsScreen';
 
 export default function App() {
   const insets = useSafeAreaInsets();
-  const [role, setRole] = useState<UserRole>('customer');
-  const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [isScreenModalOpen, setIsScreenModalOpen] = useState(false);
 
-  // App & User State
-  const [user, setUser] = useState<UserProfile>(INITIAL_USER_PROFILE);
-  const [providers, setProviders] = useState<Provider[]>(INITIAL_PROVIDERS);
-  const [selectedProvider, setSelectedProvider] = useState<Provider>(INITIAL_PROVIDERS[0]);
-  const [selectedService, setSelectedService] = useState<Service>(INITIAL_PROVIDERS[0].services[0]);
-  const [selectedDate, setSelectedDate] = useState<string>('Tuesday, Oct 13');
-  const [bookings, setBookings] = useState<Booking[]>(INITIAL_BOOKINGS);
-  const [currentConfirmedBooking, setCurrentConfirmedBooking] = useState<Booking>(INITIAL_BOOKINGS[0]);
-  const [studioServices, setStudioServices] = useState<Service[]>(INITIAL_STUDIO_SERVICES);
+  // ── Auth Store ──────────────────────────────────────────────────────────────
+  const {
+    user, role, currentScreen, isHydrated,
+    isAuthenticated, setCurrentScreen, login, loginAsGuest, logout, switchRole, setUser, hydrate,
+  } = useAuthStore();
 
-  // Handle Role Switch
-  const handleRoleChange = (newRole: UserRole) => {
-    setRole(newRole);
-    if (newRole === 'customer') {
-      setCurrentScreen('browse');
-    } else {
-      setCurrentScreen('dashboard');
+  // Hydrate auth session from AsyncStorage on launch
+  useEffect(() => { hydrate(); }, []);
+
+  // Register for push notifications once authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      registerForPushNotifications().catch(() => {});
     }
+  }, [isAuthenticated]);
+
+  // ── Booking Store ───────────────────────────────────────────────────────────
+  const {
+    bookings, flow, currentConfirmedBooking,
+    setFlowProvider, setFlowService, setFlowDate,
+    confirmBooking, setCurrentConfirmedBooking, getActiveCount,
+  } = useBookingStore();
+
+  // Pending slot held between time_slot → payment → confirmation
+  const [pendingSlot, setPendingSlot] = useState<TimeSlot | null>(null);
+  // Booking selected for review
+  const [reviewBooking, setReviewBooking] = useState<import('./types').Booking | null>(null);
+
+  // ── Provider Store ──────────────────────────────────────────────────────────
+  const {
+    providers, studioServices,
+    addProvider, updateStudioServices, getPendingCount,
+  } = useProviderStore();
+
+  // ── Navigation Helpers ──────────────────────────────────────────────────────
+  const go = (screen: Screen) => setCurrentScreen(screen);
+
+  const handleBack = () => {
+    const backMap: Partial<Record<Screen, Screen>> = {
+      confirmation: 'my_bookings',
+      payment: 'time_slot',
+      time_slot: 'service_date',
+      service_date: 'provider_profile',
+      provider_profile: 'browse',
+      empty_bookings: 'profile',
+      studio_setup: 'profile',
+      review: 'my_bookings',
+      auth: 'welcome',
+    };
+    go(backMap[currentScreen] ?? 'browse');
   };
 
-  // Handle Screen Jumps from Modal
-  const handleSelectScreenFromModal = (screen: Screen, targetRole: UserRole) => {
-    setRole(targetRole);
-    setCurrentScreen(screen);
-  };
-
-  // Auth Handlers
+  // ── Auth Handlers ───────────────────────────────────────────────────────────
   const handleAuthSuccess = (authenticatedUser: UserProfile, targetRole: UserRole) => {
-    setUser(authenticatedUser);
-    setRole(targetRole);
-    if (targetRole === 'provider') {
-      setCurrentScreen('dashboard');
-    } else {
-      setCurrentScreen('browse');
+    login(authenticatedUser, targetRole);
+  };
+
+  // ── Booking Flow Handlers ───────────────────────────────────────────────────
+  const handleSelectProvider = (provider: Provider) => {
+    setFlowProvider(provider);
+    go('provider_profile');
+  };
+
+  const handleSelectService = (service: Service) => {
+    setFlowService(service);
+    go('service_date');
+  };
+
+  const handleSelectDate = (dateDisplay: string, dateISO: string) => {
+    setFlowDate(dateDisplay, dateISO);
+    go('time_slot');
+  };
+
+  // Time slot selected → go to payment step
+  const handleConfirmSlot = (slot: TimeSlot) => {
+    setPendingSlot(slot);
+    go('payment');
+  };
+
+  // Payment confirmed → finalize booking
+  const handleConfirmPayment = (slot: TimeSlot, method: PaymentMethod) => {
+    try {
+      const booking = confirmBooking(slot, method);
+      setUser({ ...user, activePassesCount: user.activePassesCount + 1 });
+      setPendingSlot(null);
+      // Schedule a local reminder 1 hour before the appointment
+      scheduleBookingReminder(booking).catch(() => {});
+      go('confirmation');
+    } catch (e) {
+      go('browse');
     }
   };
 
-  // Studio Creation Handler (Wizard Completion)
+  // ── Studio Setup ────────────────────────────────────────────────────────────
   const handleCompleteStudioSetup = (newStudio: Provider) => {
-    setProviders((prev) => [newStudio, ...prev]);
-    setSelectedProvider(newStudio);
-    setStudioServices(newStudio.services);
-    setUser((prev) => ({
-      ...prev,
+    addProvider(newStudio);
+    updateStudioServices(newStudio.services);
+    setUser({
+      ...user,
       hasStudio: true,
       studioId: newStudio.id,
       studioName: newStudio.name,
       studioCategory: newStudio.category,
       role: 'provider',
-    }));
-    setRole('provider');
-    setCurrentScreen('dashboard');
+    });
+    switchRole('provider');
   };
 
-  // Provider Services Catalog Update
-  const handleUpdateStudioServices = (updatedServices: Service[]) => {
-    setStudioServices(updatedServices);
-    setProviders((prev) =>
-      prev.map((p) => {
-        if (p.id === 'wren-co' || p.id === user.studioId) {
-          return { ...p, services: updatedServices };
-        }
-        return p;
-      })
-    );
+  // ── Role Switch ─────────────────────────────────────────────────────────────
+  const handleRoleChange = (newRole: UserRole) => switchRole(newRole);
+
+  const handleSelectScreenFromModal = (screen: Screen, targetRole: UserRole) => {
+    useAuthStore.getState().setRole(targetRole);
+    go(screen);
   };
 
-  // Customer Booking Navigation Handlers
-  const handleGetStarted = () => {
-    setCurrentScreen('auth');
-  };
-
-  const handleSelectProvider = (provider: Provider) => {
-    setSelectedProvider(provider);
-    if (provider.services.length > 0) {
-      setSelectedService(provider.services[0]);
-    }
-    setCurrentScreen('provider_profile');
-  };
-
-  const handleSelectService = (service: Service) => {
-    setSelectedService(service);
-    setCurrentScreen('service_date');
-  };
-
-  const handleSelectDate = (dateString: string) => {
-    setSelectedDate(dateString);
-    setCurrentScreen('time_slot');
-  };
-
-  const handleConfirmSlot = (slot: TimeSlot) => {
-    const randomCode = `BKE-${Math.floor(1000 + Math.random() * 9000)}X`;
-    const newBooking: Booking = {
-      id: `bk-${Date.now()}`,
-      refCode: randomCode,
-      providerId: selectedProvider.id,
-      providerName: selectedProvider.name,
-      serviceName: selectedService.name,
-      date: selectedDate,
-      time: `${slot.time} - Approx. ${selectedService.durationMinutes}m`,
-      duration: `${selectedService.durationMinutes} min`,
-      price: selectedService.price,
-      status: 'confirmed',
+  // ── Screen Title ────────────────────────────────────────────────────────────
+  const getScreenTitle = (): string => {
+    const titles: Partial<Record<Screen, string>> = {
+      welcome: 'BookEase',
+      auth: 'Sign In / Register',
+      browse: 'BookEase',
+      provider_profile: flow.provider?.name ?? 'Studio',
+      service_date: 'Select Date',
+      time_slot: 'Select Time',
+      payment: 'Checkout',
+      review: 'Write a Review',
+      confirmation: 'Pass Confirmed',
+      my_bookings: 'My Bookings',
+      empty_bookings: 'My Bookings',
+      profile: 'Member Passbook',
+      studio_setup: 'Open Your Studio',
+      dashboard: user.studioName ?? 'Studio Dashboard',
+      provider_services: 'Service Catalog',
+      availability: 'Availability & Shifts',
+      requests: 'Booking Requests',
     };
-
-    setBookings((prev) => [newBooking, ...prev]);
-    setUser((prev) => ({
-      ...prev,
-      activePassesCount: prev.activePassesCount + 1,
-    }));
-    setCurrentConfirmedBooking(newBooking);
-    setCurrentScreen('confirmation');
+    return titles[currentScreen] ?? 'BookEase';
   };
 
-  const handleBack = () => {
-    if (currentScreen === 'confirmation') {
-      setCurrentScreen('my_bookings');
-    } else if (currentScreen === 'time_slot') {
-      setCurrentScreen('service_date');
-    } else if (currentScreen === 'service_date') {
-      setCurrentScreen('provider_profile');
-    } else if (currentScreen === 'provider_profile') {
-      setCurrentScreen('browse');
-    } else if (currentScreen === 'empty_bookings') {
-      setCurrentScreen('profile');
-    } else if (currentScreen === 'studio_setup') {
-      setCurrentScreen('profile');
-    } else if (currentScreen === 'auth') {
-      setCurrentScreen('welcome');
-    } else {
-      setCurrentScreen('browse');
-    }
-  };
+  const noNavScreens = ['welcome', 'auth', 'studio_setup'];
+  const showNav = !noNavScreens.includes(currentScreen);
 
-  // Determine screen header title
-  const getScreenTitle = () => {
-    if (currentScreen === 'welcome') return 'BookEase';
-    if (currentScreen === 'auth') return 'Sign In / Register';
-    if (currentScreen === 'browse') return 'BookEase';
-    if (currentScreen === 'provider_profile') return selectedProvider.name;
-    if (currentScreen === 'service_date') return 'Select Date';
-    if (currentScreen === 'time_slot') return 'Select Time';
-    if (currentScreen === 'confirmation') return 'Pass Confirmed';
-    if (currentScreen === 'my_bookings') return 'My Bookings';
-    if (currentScreen === 'empty_bookings') return 'My Bookings';
-    if (currentScreen === 'profile') return 'Member Passbook';
-    if (currentScreen === 'studio_setup') return 'Open Your Studio';
-    if (currentScreen === 'dashboard') return user.studioName || 'Wren & Co.';
-    if (currentScreen === 'provider_services') return 'Service Catalog';
-    if (currentScreen === 'availability') return 'Availability & Shifts';
-    if (currentScreen === 'requests') return 'Booking Requests';
-    return 'BookEase';
-  };
+  if (!isHydrated) {
+    return (
+      <View style={styles.splashContainer}>
+        <StatusBar barStyle="light-content" backgroundColor={Colors.inkPlum} />
+        <ActivityIndicator size="large" color={Colors.marigoldLight} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.outerContainer}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.inkPlum} />
 
-      <View style={[styles.appContainer, { paddingTop: insets.top }]}> 
-          <TopAppBar
-            role={role}
-            currentScreen={currentScreen}
-            onRoleChange={handleRoleChange}
-            onNavigate={(screen) => setCurrentScreen(screen)}
-            onBack={handleBack}
-            onOpenScreenModal={() => setIsScreenModalOpen(true)}
-            title={getScreenTitle()}
-          />
+      <View style={[styles.appContainer, { paddingTop: insets.top }]}>
+        <TopAppBar
+          role={role}
+          currentScreen={currentScreen}
+          onRoleChange={handleRoleChange}
+          onNavigate={go}
+          onBack={handleBack}
+          onOpenScreenModal={() => setIsScreenModalOpen(true)}
+          title={getScreenTitle()}
+        />
 
-          {/* Active Screen View */}
-          <View
-            style={[
-              styles.screenViewport,
-              !['welcome', 'auth', 'studio_setup'].includes(currentScreen) && {
-                paddingBottom: 62 + insets.bottom,
-              },
-            ]}
-          >
-            {/* Customer Screens */}
-            {currentScreen === 'welcome' && (
-              <WelcomeScreen onGetStarted={handleGetStarted} />
-            )}
+        <View style={[styles.screenViewport, showNav && { paddingBottom: 62 + insets.bottom }]}>
 
-            {currentScreen === 'auth' && (
-              <AuthScreen
-                onAuthSuccess={handleAuthSuccess}
-                onContinueAsGuest={() => setCurrentScreen('browse')}
-              />
-            )}
+          {/* ── Customer Screens ─────────────────────────────────────────── */}
+          {currentScreen === 'welcome' && (
+            <WelcomeScreen onGetStarted={() => go('auth')} />
+          )}
 
-            {currentScreen === 'browse' && (
-              <BrowseProvidersScreen
-                providers={providers}
-                onSelectProvider={handleSelectProvider}
-              />
-            )}
+          {currentScreen === 'auth' && (
+            <AuthScreen
+              onAuthSuccess={handleAuthSuccess}
+              onContinueAsGuest={loginAsGuest}
+            />
+          )}
 
-            {currentScreen === 'provider_profile' && (
-              <ProviderProfileScreen
-                provider={selectedProvider}
-                onSelectService={handleSelectService}
-              />
-            )}
+          {currentScreen === 'browse' && (
+            <BrowseProvidersScreen
+              providers={providers}
+              onSelectProvider={handleSelectProvider}
+            />
+          )}
 
-            {currentScreen === 'service_date' && (
-              <ServiceDateSelectionScreen
-                provider={selectedProvider}
-                service={selectedService}
-                onSelectDate={handleSelectDate}
-              />
-            )}
+          {currentScreen === 'provider_profile' && flow.provider && (
+            <ProviderProfileScreen
+              provider={flow.provider}
+              onSelectService={handleSelectService}
+            />
+          )}
 
-            {currentScreen === 'time_slot' && (
-              <TimeSlotSelectionScreen
-                provider={selectedProvider}
-                service={selectedService}
-                selectedDate={selectedDate}
-                onConfirmBooking={handleConfirmSlot}
-              />
-            )}
+          {currentScreen === 'service_date' && flow.provider && flow.service && (
+            <ServiceDateSelectionScreen
+              provider={flow.provider}
+              service={flow.service}
+              onSelectDate={handleSelectDate}
+            />
+          )}
 
-            {currentScreen === 'confirmation' && (
-              <BookingConfirmationScreen
-                booking={currentConfirmedBooking}
-                onBackToBrowse={() => setCurrentScreen('browse')}
-                onViewMyBookings={() => setCurrentScreen('my_bookings')}
-              />
-            )}
+          {currentScreen === 'time_slot' && flow.provider && flow.service && (
+            <TimeSlotSelectionScreen
+              provider={flow.provider}
+              service={flow.service}
+              selectedDate={flow.selectedDate}
+              selectedDateISO={flow.selectedDateISO}
+              onConfirmBooking={handleConfirmSlot}
+            />
+          )}
 
-            {currentScreen === 'my_bookings' && (
-              <MyBookingsScreen
-                bookings={bookings}
-                onSelectBooking={(bk) => {
-                  setCurrentConfirmedBooking(bk);
-                  setCurrentScreen('confirmation');
-                }}
-                onBrowseProviders={() => setCurrentScreen('browse')}
-              />
-            )}
+          {currentScreen === 'payment' && flow.provider && flow.service && pendingSlot && (
+            <PaymentScreen
+              provider={flow.provider}
+              service={flow.service}
+              selectedDate={flow.selectedDate}
+              slot={pendingSlot}
+              onConfirmPayment={handleConfirmPayment}
+              onBack={() => go('time_slot')}
+            />
+          )}
 
-            {currentScreen === 'profile' && (
-              <ProfileScreen
-                user={user}
-                onOpenStudioSetup={() => setCurrentScreen('studio_setup')}
-                onSwitchToStudio={() => {
-                  setRole('provider');
-                  setCurrentScreen('dashboard');
-                }}
-                onViewMyBookings={() => setCurrentScreen('my_bookings')}
-                onViewEmptyBookings={() => setCurrentScreen('empty_bookings')}
-                onSignOut={() => setCurrentScreen('auth')}
-              />
-            )}
+          {currentScreen === 'confirmation' && currentConfirmedBooking && (
+            <BookingConfirmationScreen
+              booking={currentConfirmedBooking}
+              onBackToBrowse={() => go('browse')}
+              onViewMyBookings={() => go('my_bookings')}
+            />
+          )}
 
-            {currentScreen === 'studio_setup' && (
-              <StudioSetupScreen
-                onCompleteSetup={handleCompleteStudioSetup}
-                onCancel={() => setCurrentScreen('profile')}
-              />
-            )}
+          {currentScreen === 'my_bookings' && (
+            <MyBookingsScreen
+              bookings={bookings}
+              onSelectBooking={(bk) => {
+                setCurrentConfirmedBooking(bk);
+                go('confirmation');
+              }}
+              onBrowseProviders={() => go('browse')}
+              onReviewBooking={(bk) => {
+                setReviewBooking(bk);
+                go('review');
+              }}
+            />
+          )}
 
-            {currentScreen === 'empty_bookings' && (
-              <EmptyBookingsScreen
-                onBrowseProviders={() => setCurrentScreen('browse')}
-              />
-            )}
+          {currentScreen === 'review' && reviewBooking && (
+            <ReviewScreen
+              booking={reviewBooking}
+              authorName={user.name}
+              onSubmitted={() => { setReviewBooking(null); go('my_bookings'); }}
+              onSkip={() => { setReviewBooking(null); go('my_bookings'); }}
+            />
+          )}
 
-            {/* Provider Screens */}
-            {currentScreen === 'dashboard' && (
-              <ProviderDashboardScreen
-                onNavigateToRequests={() => setCurrentScreen('requests')}
-                onNavigateToAvailability={() => setCurrentScreen('availability')}
-              />
-            )}
+          {currentScreen === 'empty_bookings' && (
+            <EmptyBookingsScreen onBrowseProviders={() => go('browse')} />
+          )}
 
-            {currentScreen === 'provider_services' && (
-              <ProviderServicesManagerScreen
-                services={studioServices}
-                onUpdateServices={handleUpdateStudioServices}
-              />
-            )}
+          {currentScreen === 'profile' && (
+            <ProfileScreen
+              user={user}
+              onOpenStudioSetup={() => go('studio_setup')}
+              onSwitchToStudio={() => switchRole('provider')}
+              onViewMyBookings={() => go('my_bookings')}
+              onViewEmptyBookings={() => go('empty_bookings')}
+              onSignOut={logout}
+            />
+          )}
 
-            {currentScreen === 'availability' && <AvailabilityManagerScreen />}
+          {currentScreen === 'studio_setup' && (
+            <StudioSetupScreen
+              onCompleteSetup={handleCompleteStudioSetup}
+              onCancel={() => go('profile')}
+            />
+          )}
 
-            {currentScreen === 'requests' && <BookingRequestsScreen />}
-          </View>
+          {/* ── Provider Screens ─────────────────────────────────────────── */}
+          {currentScreen === 'dashboard' && (
+            <ProviderDashboardScreen
+              onNavigateToRequests={() => go('requests')}
+              onNavigateToAvailability={() => go('availability')}
+            />
+          )}
 
-          {/* Bottom Navigation Bar */}
-          <BottomNavBar
-            role={role}
-            currentScreen={currentScreen}
-            onNavigate={(s) => setCurrentScreen(s)}
-            pendingRequestsCount={4}
-            activeBookingsCount={bookings.filter((b) => !b.isPast).length}
-          />
+          {currentScreen === 'provider_services' && (
+            <ProviderServicesManagerScreen
+              services={studioServices}
+              onUpdateServices={updateStudioServices}
+            />
+          )}
 
+          {currentScreen === 'availability' && <AvailabilityManagerScreen />}
+
+          {currentScreen === 'requests' && <BookingRequestsScreen />}
+        </View>
+
+        {/* Global notification banner — floats above all screens */}
+        <NotificationBanner />
+
+        <BottomNavBar
+          role={role}
+          currentScreen={currentScreen}
+          onNavigate={go}
+          pendingRequestsCount={getPendingCount()}
+          activeBookingsCount={getActiveCount()}
+        />
       </View>
 
-      {/* Screen Selection Modal */}
       <ScreenSelectorModal
         isOpen={isScreenModalOpen}
         onClose={() => setIsScreenModalOpen(false)}
@@ -370,81 +368,15 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  splashContainer: {
+    flex: 1,
+    backgroundColor: Colors.inkPlum,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   outerContainer: {
     flex: 1,
     backgroundColor: '#EBE8E1',
-  },
-  topBanner: {
-    backgroundColor: Colors.inkPlum,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderColor: 'rgba(206, 196, 203, 0.2)',
-    zIndex: 50,
-  },
-  bannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  bannerLogo: {
-    fontFamily: Fonts.serif,
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.marigoldLight,
-  },
-  bannerDivider: {
-    color: 'rgba(206, 196, 203, 0.5)',
-    fontSize: 12,
-  },
-  bannerTagline: {
-    fontFamily: Fonts.mono,
-    fontSize: 11,
-    color: Colors.outline,
-  },
-  bannerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  navTriggerBtn: {
-    backgroundColor: Colors.marigoldLight,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  navTriggerText: {
-    fontFamily: Fonts.mono,
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.inkPlum,
-  },
-  frameToggleBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  frameToggleText: {
-    fontFamily: Fonts.mono,
-    fontSize: 11,
-    color: Colors.warmAlabaster,
-  },
-  centerContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
   },
   appContainer: {
     flex: 1,
@@ -453,86 +385,8 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  frameModeContainer: {
-    maxWidth: 430,
-    height: 820,
-    borderRadius: 36,
-    borderWidth: 10,
-    borderColor: Colors.inkPlum,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  fullModeContainer: {
-    maxWidth: 480,
-    flex: 1,
-    minHeight: '100%',
-  },
-  mockStatusBar: {
-    backgroundColor: Colors.alabasterCard,
-    paddingTop: 8,
-    paddingHorizontal: 20,
-    paddingBottom: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(206, 196, 203, 0.3)',
-  },
-  statusTime: {
-    fontFamily: Fonts.mono,
-    fontSize: 11,
-    color: Colors.slate,
-  },
-  cameraPunchhole: {
-    width: 60,
-    height: 14,
-    backgroundColor: Colors.inkPlum,
-    borderRadius: 8,
-  },
-  statusIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  status5G: {
-    fontFamily: Fonts.mono,
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.slate,
-  },
-  batteryIcon: {
-    width: 16,
-    height: 9,
-    borderWidth: 1,
-    borderColor: Colors.slate,
-    borderRadius: 2,
-    padding: 1,
-  },
-  batteryFill: {
-    width: '80%',
-    height: '100%',
-    backgroundColor: Colors.slate,
-  },
   screenViewport: {
     flex: 1,
     backgroundColor: Colors.warmAlabaster,
-  },
-  androidNavPillContainer: {
-    position: 'absolute',
-    bottom: 2,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 60,
-    pointerEvents: 'none',
-  },
-  androidNavPill: {
-    width: 90,
-    height: 3.5,
-    backgroundColor: 'rgba(43, 27, 46, 0.4)',
-    borderRadius: 2,
   },
 });

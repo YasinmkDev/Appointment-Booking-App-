@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,22 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Provider, Service } from '../../types';
+import { useProviderStore } from '../../store/providerStore';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 
 interface ServiceDateSelectionScreenProps {
   provider: Provider;
   service: Service;
-  onSelectDate: (dateString: string) => void;
+  onSelectDate: (dateDisplay: string, dateISO: string) => void;
+}
+
+interface DateOption {
+  day: string;
+  num: string;
+  full: string;
+  iso: string;
+  available: boolean;
 }
 
 export const ServiceDateSelectionScreen: React.FC<ServiceDateSelectionScreenProps> = ({
@@ -21,17 +30,48 @@ export const ServiceDateSelectionScreen: React.FC<ServiceDateSelectionScreenProp
   service,
   onSelectDate,
 }) => {
-  const dates = [
-    { day: 'Mon', num: '12', full: 'Monday, Oct 12', available: true },
-    { day: 'Tue', num: '13', full: 'Tuesday, Oct 13', available: true },
-    { day: 'Wed', num: '14', full: 'Wednesday, Oct 14', available: true },
-    { day: 'Thu', num: '15', full: 'Thursday, Oct 15', available: true },
-    { day: 'Fri', num: '16', full: 'Friday, Oct 16', available: true },
-    { day: 'Sat', num: '17', full: 'Saturday, Oct 17', available: false },
-    { day: 'Sun', num: '18', full: 'Sunday, Oct 18', available: false },
-  ];
+  const schedule = useProviderStore((s) => s.schedule);
+  const dateOverrides = useProviderStore((s) => s.dateOverrides);
 
-  const [selectedDate, setSelectedDate] = useState(dates[1]); // Default to Tue 13
+  // Generate next 14 days dynamically
+  const dates: DateOption[] = useMemo(() => {
+    const result: DateOption[] = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+
+      const dayOfWeek = d.getDay();
+      const daySchedule = schedule.find((s) => s.dayIndex === dayOfWeek);
+      const dateStr = d.toISOString().split('T')[0];
+      const override = dateOverrides.find((o) => o.date === dateStr);
+
+      let available = false;
+      if (override?.isBlocked) {
+        available = false;
+      } else if (daySchedule?.enabled && daySchedule.slots.length > 0) {
+        available = true;
+      }
+
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const fullDayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+      result.push({
+        day: dayNames[dayOfWeek],
+        num: String(d.getDate()).padStart(2, '0'),
+        full: `${fullDayNames[dayOfWeek]}, ${monthNames[d.getMonth()]} ${d.getDate()}`,
+        iso: d.toISOString(),
+        available,
+      });
+    }
+    return result;
+  }, [schedule, dateOverrides]);
+
+  const firstAvailable = dates.find((d) => d.available);
+  const [selectedDate, setSelectedDate] = useState<DateOption | null>(firstAvailable ?? null);
 
   return (
     <View style={styles.container}>
@@ -56,7 +96,6 @@ export const ServiceDateSelectionScreen: React.FC<ServiceDateSelectionScreenProp
               <Text style={styles.metaLabel}>Service Total</Text>
               <Text style={styles.metaPrice}>${service.price.toFixed(2)}</Text>
             </View>
-
             <View style={styles.providerRight}>
               <Text style={styles.metaLabel}>Studio</Text>
               <Text style={styles.metaProviderName}>{provider.name}</Text>
@@ -64,11 +103,13 @@ export const ServiceDateSelectionScreen: React.FC<ServiceDateSelectionScreenProp
           </View>
         </View>
 
-        {/* Date Selection Strip Section */}
+        {/* Date Selection Strip */}
         <View style={styles.dateSection}>
           <View style={styles.dateHeader}>
             <Text style={styles.dateTitle}>Select Date</Text>
-            <Text style={styles.dateMonth}>October 2024</Text>
+            <Text style={styles.dateMonth}>
+              {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            </Text>
           </View>
 
           <ScrollView
@@ -77,40 +118,33 @@ export const ServiceDateSelectionScreen: React.FC<ServiceDateSelectionScreenProp
             contentContainerStyle={styles.calendarStrip}
           >
             {dates.map((d) => {
-              const isSelected = selectedDate.num === d.num;
+              const isSelected = selectedDate?.iso === d.iso;
 
               if (!d.available) {
                 return (
-                  <View key={d.num} style={[styles.dateButton, styles.dateButtonDisabled]}>
+                  <View key={d.iso} style={[styles.dateButton, styles.dateButtonDisabled]}>
                     <Text style={[styles.dayLabel, styles.dayLabelDisabled]}>{d.day}</Text>
                     <Text style={[styles.dateNum, styles.dateNumDisabled]}>{d.num}</Text>
                   </View>
                 );
               }
 
-              if (isSelected) {
-                return (
-                  <TouchableOpacity
-                    key={d.num}
-                    activeOpacity={0.85}
-                    onPress={() => setSelectedDate(d)}
-                    style={[styles.dateButton, styles.dateButtonSelected]}
-                  >
-                    <Text style={[styles.dayLabel, styles.dayLabelSelected]}>{d.day}</Text>
-                    <Text style={[styles.dateNum, styles.dateNumSelected]}>{d.num}</Text>
-                  </TouchableOpacity>
-                );
-              }
-
               return (
                 <TouchableOpacity
-                  key={d.num}
+                  key={d.iso}
                   activeOpacity={0.8}
                   onPress={() => setSelectedDate(d)}
-                  style={[styles.dateButton, styles.dateButtonDefault]}
+                  style={[
+                    styles.dateButton,
+                    isSelected ? styles.dateButtonSelected : styles.dateButtonDefault,
+                  ]}
                 >
-                  <Text style={styles.dayLabel}>{d.day}</Text>
-                  <Text style={styles.dateNum}>{d.num}</Text>
+                  <Text style={[styles.dayLabel, isSelected && styles.dayLabelSelected]}>
+                    {d.day}
+                  </Text>
+                  <Text style={[styles.dateNum, isSelected && styles.dateNumSelected]}>
+                    {d.num}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
@@ -122,13 +156,16 @@ export const ServiceDateSelectionScreen: React.FC<ServiceDateSelectionScreenProp
       <View style={styles.bottomBar}>
         <View style={styles.selectedDateInfo}>
           <Text style={styles.bottomDateLabel}>Selected Date</Text>
-          <Text style={styles.bottomDateValue}>{selectedDate.full}</Text>
+          <Text style={styles.bottomDateValue}>
+            {selectedDate ? selectedDate.full : 'No available dates'}
+          </Text>
         </View>
 
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={() => onSelectDate(selectedDate.full)}
-          style={styles.continueButton}
+          onPress={() => selectedDate && onSelectDate(selectedDate.full, selectedDate.iso)}
+          style={[styles.continueButton, !selectedDate && styles.continueButtonDisabled]}
+          disabled={!selectedDate}
         >
           <Text style={styles.continueButtonText}>Continue to Times</Text>
         </TouchableOpacity>
@@ -138,17 +175,9 @@ export const ServiceDateSelectionScreen: React.FC<ServiceDateSelectionScreenProp
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.warmAlabaster,
-  },
-  scrollArea: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 16,
-    paddingBottom: 110,
-  },
+  container: { flex: 1, backgroundColor: Colors.warmAlabaster },
+  scrollArea: { flex: 1 },
+  contentContainer: { padding: 16, paddingBottom: 110 },
   summaryCard: {
     backgroundColor: Colors.alabasterCard,
     borderRadius: 8,
@@ -162,10 +191,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  summaryTop: {
-    padding: 16,
-    backgroundColor: Colors.white,
-  },
+  summaryTop: { padding: 16, backgroundColor: Colors.white },
   summaryServiceName: {
     fontFamily: Fonts.serif,
     fontSize: 18,
@@ -173,12 +199,7 @@ const styles = StyleSheet.create({
     color: Colors.inkPlum,
     marginBottom: 4,
   },
-  summaryServiceDesc: {
-    fontFamily: Fonts.sans,
-    fontSize: 12,
-    color: Colors.slate,
-    lineHeight: 16,
-  },
+  summaryServiceDesc: { fontFamily: Fonts.sans, fontSize: 12, color: Colors.slate, lineHeight: 16 },
   perforatedLine: {
     height: 1,
     borderBottomWidth: 1,
@@ -200,46 +221,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 2,
   },
-  metaPrice: {
-    fontFamily: Fonts.mono,
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.inkPlum,
-  },
-  providerRight: {
-    alignItems: 'flex-end',
-  },
-  metaProviderName: {
-    fontFamily: Fonts.sans,
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.inkPlum,
-  },
-  dateSection: {
-    width: '100%',
-  },
+  metaPrice: { fontFamily: Fonts.mono, fontSize: 18, fontWeight: '700', color: Colors.inkPlum },
+  providerRight: { alignItems: 'flex-end' },
+  metaProviderName: { fontFamily: Fonts.sans, fontSize: 13, fontWeight: '600', color: Colors.inkPlum },
+  dateSection: { width: '100%' },
   dateHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
     marginBottom: 12,
   },
-  dateTitle: {
-    fontFamily: Fonts.serif,
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.inkPlum,
-  },
-  dateMonth: {
-    fontFamily: Fonts.mono,
-    fontSize: 12,
-    color: Colors.slate,
-  },
-  calendarStrip: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingVertical: 4,
-  },
+  dateTitle: { fontFamily: Fonts.serif, fontSize: 18, fontWeight: '700', color: Colors.inkPlum },
+  dateMonth: { fontFamily: Fonts.mono, fontSize: 12, color: Colors.slate },
+  calendarStrip: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
   dateButton: {
     width: 60,
     paddingVertical: 14,
@@ -270,31 +264,12 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     opacity: 0.4,
   },
-  dayLabel: {
-    fontFamily: Fonts.mono,
-    fontSize: 11,
-    color: Colors.slate,
-    marginBottom: 4,
-  },
-  dayLabelSelected: {
-    color: Colors.inkPlum,
-    fontWeight: '700',
-  },
-  dayLabelDisabled: {
-    color: Colors.slate,
-  },
-  dateNum: {
-    fontFamily: Fonts.serif,
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.inkPlum,
-  },
-  dateNumSelected: {
-    color: Colors.inkPlum,
-  },
-  dateNumDisabled: {
-    color: Colors.slate,
-  },
+  dayLabel: { fontFamily: Fonts.mono, fontSize: 11, color: Colors.slate, marginBottom: 4 },
+  dayLabelSelected: { color: Colors.inkPlum, fontWeight: '700' },
+  dayLabelDisabled: { color: Colors.slate },
+  dateNum: { fontFamily: Fonts.serif, fontSize: 17, fontWeight: '700', color: Colors.inkPlum },
+  dateNumSelected: { color: Colors.inkPlum },
+  dateNumDisabled: { color: Colors.slate },
   bottomBar: {
     position: 'absolute',
     bottom: 0,
@@ -309,10 +284,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     zIndex: 50,
   },
-  selectedDateInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
+  selectedDateInfo: { flex: 1, marginRight: 12 },
   bottomDateLabel: {
     fontFamily: Fonts.mono,
     fontSize: 9,
@@ -332,6 +304,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 6,
   },
+  continueButtonDisabled: { opacity: 0.4 },
   continueButtonText: {
     fontFamily: Fonts.sans,
     fontSize: 12,

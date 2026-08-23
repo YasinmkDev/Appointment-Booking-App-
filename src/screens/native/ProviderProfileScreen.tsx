@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Star, MapPin, Clock, DollarSign, ArrowRight } from 'lucide-react-native';
 import { Provider, Service } from '../../types';
+import { useReviewStore } from '../../store/reviewStore';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 
@@ -21,6 +22,13 @@ export const ProviderProfileScreen: React.FC<ProviderProfileScreenProps> = ({
   provider,
   onSelectService,
 }) => {
+  const getAverageRating = useReviewStore((s) => s.getAverageRating);
+  const getReviewsForProvider = useReviewStore((s) => s.getReviewsForProvider);
+
+  const liveAvg = getAverageRating(provider.id);
+  const liveCount = getReviewsForProvider(provider.id).length;
+  const displayRating = liveAvg ?? provider.rating;
+  const displayCount = provider.reviewCount + liveCount;
   return (
     <ScrollView
       style={styles.container}
@@ -40,8 +48,8 @@ export const ProviderProfileScreen: React.FC<ProviderProfileScreenProps> = ({
           <View style={styles.metaRow}>
             <View style={styles.ratingRow}>
               <Star size={12} color={Colors.marigold} fill={Colors.marigold} />
-              <Text style={styles.ratingValue}>{provider.rating}</Text>
-              <Text style={styles.reviewCount}>({provider.reviewCount} reviews)</Text>
+              <Text style={styles.ratingValue}>{displayRating.toFixed(1)}</Text>
+              <Text style={styles.reviewCount}>({displayCount} reviews)</Text>
             </View>
             <View style={styles.metaDivider} />
             <View style={styles.locationRow}>
