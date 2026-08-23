@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "MyReactNativeApp",
-    "slug": "MyReactNativeApp",
+    "slug": "tally",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -38,6 +38,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d8657638-4aea-4e28-bbc3-9c74b6537848"
+      }
+    },
+    "owner": "yasinmk"
   }
 }
