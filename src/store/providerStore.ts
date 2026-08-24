@@ -23,6 +23,28 @@ import type { Database } from '../lib/database.types';
 
 type DatabaseProvider = Database['public']['Tables']['providers']['Row'];
 type DatabaseService = Database['public']['Tables']['services']['Row'];
+type RemoteBookingRequest = {
+  id: string;
+  booking_id: string;
+  provider_id: string;
+  customer_id: string;
+  status: BookingRequest['status'];
+  created_at: string;
+  bookings: {
+    service_id: string;
+    price: number;
+    start_at: string;
+    services: { name: string; duration_minutes: number } | { name: string; duration_minutes: number }[] | null;
+    profiles: { name: string; avatar_url: string | null } | { name: string; avatar_url: string | null }[] | null;
+  } | {
+    service_id: string;
+    price: number;
+    start_at: string;
+    services: { name: string; duration_minutes: number } | { name: string; duration_minutes: number }[] | null;
+    profiles: { name: string; avatar_url: string | null } | { name: string; avatar_url: string | null }[] | null;
+  }[] | null;
+};
+
 
 interface ProviderState {
   providers: Provider[];
@@ -146,10 +168,94 @@ export const useProviderStore = create<ProviderState>()(
       })),
     }));
     set({ providers: remoteProviders });
+
+    const { data: authData } = await supabase.auth.getUser();
+    const ownerId = authData.user?.id;
+    const ownProvider = data.find((provider) => provider.owner_id === ownerId);
+    if (!ownProvider) return;
+
+    const [{ data: availability }, { data: requests }] = await Promise.all([
+      supabase.from('availability').select('*').eq('provider_id', ownProvider.id).order('day_index'),
+      supabase.from('booking_requests')
+        .select('id, booking_id, provider_id, customer_id, status, created_at, bookings(service_id, price, start_at, services(name, duration_minutes), profiles(name, avatar_url))')
+        .eq('provider_id', ownProvider.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false }),
+    ]);
+    const typedRequests = requests as unknown as RemoteBookingRequest[] | null;
+
+    if (availability && availability.length > 0) {
+      set({ schedule: availability.map((day) => ({
+        day: day.day_name,
+        dayIndex: day.day_index,
+        enabled: day.enabled,
+        slots: Array.isArray(day.slots) ? day.slots as DaySchedule['slots'] : [],
+      })) });
+    }
+
+    if (typedRequests && typedRequests.length > 0) {
+      const mappedRequests: BookingRequest[] = typedRequests.map((request) => {
+        const booking = Array.isArray(request.bookings) ? request.bookings[0] : request.bookings;
+        const profile = booking && (Array.isArray(booking.profiles) ? booking.profiles[0] : booking.profiles);
+        const service = booking && (Array.isArray(booking.services) ? booking.services[0] : booking.services);
+        const start = booking?.start_at ? new Date(booking.start_at) : new Date(request.created_at);
+        const duration = service?.duration_minutes ?? 30;
+        const end = new Date(start.getTime() + duration * 60000);
+        return {
+          id: request.id,
+          bookingId: request.booking_id,
+          customerName: profile?.name ?? 'Customer',
+          customerAvatar: profile?.avatar_url ?? undefined,
+          serviceName: service?.name ?? 'Appointment',
+          serviceId: booking?.service_id ?? '',
+          durationMinutes: duration,
+          date: start.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase(),
+          timeRange: `${start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - ${end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
+          startISO: start.toISOString(),
+          status: request.status,
+          price: Number(booking?.price ?? 0),
+        };
+      });
+      set({ bookingRequests: mappedRequests });
+    }
   },
 
-  addProvider: (provider) =>
-    set((s) => ({ providers: [provider, ...s.providers] })),
+  addProvider: (provider) => {
+    set((s) => ({ providers: [provider, ...s.providers] }));
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return;
+      return supabase.from('providers').insert({
+        id: provider.id,
+        owner_id: data.user.id,
+        name: provider.name,
+        category: provider.category,
+        rating: provider.rating,
+        review_count: provider.reviewCount,
+        distance: provider.distance,
+        bio: provider.bio,
+        image_url: provider.image,
+        next_available: provider.nextAvailable,
+        slot_interval_minutes: provider.slotIntervalMinutes ?? 30,
+        buffer_minutes: provider.bufferMinutes ?? 0,
+        instant_confirmation: provider.instantConfirmation ?? false,
+        timezone: provider.timezone ?? 'UTC',
+        address: provider.address ?? null,
+        is_verified: false,
+      }).select('id').single().then(({ data: created, error }) => {
+        if (error || !created) return;
+        return supabase.from('services').insert(provider.services.map((service) => ({
+          provider_id: created.id,
+          name: service.name,
+          description: service.description,
+          price: service.price,
+          duration_minutes: service.durationMinutes,
+          category: service.category,
+          buffer_minutes: service.bufferMinutes ?? 0,
+          is_active: service.isActive ?? true,
+        })));
+      });
+    });
+  },
 
   updateProvider: (id, updates) =>
     set((s) => ({
@@ -166,9 +272,42 @@ export const useProviderStore = create<ProviderState>()(
         p.id === 'wren-co' ? { ...p, services } : p
       ),
     }));
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return;
+      return supabase.from('providers').select('id').eq('owner_id', data.user.id).maybeSingle();
+    }).then((result) => {
+      const providerId = result?.data?.id;
+      if (!providerId) return;
+      return supabase.from('services').upsert(services.map((service) => ({
+        provider_id: providerId,
+        name: service.name,
+        description: service.description,
+        price: service.price,
+        duration_minutes: service.durationMinutes,
+        category: service.category,
+        buffer_minutes: service.bufferMinutes ?? 0,
+        is_active: service.isActive ?? true,
+      })));
+    }).catch(() => {});
   },
 
-  setSchedule: (schedule) => set({ schedule }),
+  setSchedule: (schedule) => {
+    set({ schedule });
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return;
+      return supabase.from('providers').select('id').eq('owner_id', data.user.id).maybeSingle();
+    }).then((result) => {
+      const providerId = result?.data?.id;
+      if (!providerId) return;
+      return supabase.from('availability').upsert(schedule.map((day) => ({
+        provider_id: providerId,
+        day_index: day.dayIndex,
+        day_name: day.day,
+        enabled: day.enabled,
+        slots: day.slots,
+      })), { onConflict: 'provider_id,day_index' });
+    }).catch(() => {});
+  },
 
   toggleDay: (dayName) =>
     set((s) => ({

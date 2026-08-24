@@ -60,7 +60,7 @@ export type Database = {
           created_at: string;
           updated_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['providers']['Row'], 'created_at' | 'updated_at'>;
+        Insert: Omit<Database['public']['Tables']['providers']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string };
         Update: Partial<Database['public']['Tables']['providers']['Insert']>;
         Relationships: [];
       };
@@ -78,8 +78,21 @@ export type Database = {
           created_at: string;
           updated_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['services']['Row'], 'created_at' | 'updated_at'>;
+        Insert: Omit<Database['public']['Tables']['services']['Row'], 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Database['public']['Tables']['services']['Insert']>;
+        Relationships: [];
+      };
+      availability: {
+        Row: {
+          id: string;
+          provider_id: string;
+          day_index: number;
+          day_name: string;
+          enabled: boolean;
+          slots: Json;
+        };
+        Insert: Omit<Database['public']['Tables']['availability']['Row'], 'id'>;
+        Update: Partial<Database['public']['Tables']['availability']['Insert']>;
         Relationships: [];
       };
       bookings: {

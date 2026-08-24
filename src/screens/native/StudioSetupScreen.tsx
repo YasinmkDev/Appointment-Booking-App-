@@ -28,6 +28,16 @@ import { AvatarPicker } from '../../components/native/AvatarPicker';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 
+function createUuid(): string {
+  const bytes = Array.from({ length: 16 }, () => Math.floor(Math.random() * 256));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  return bytes.map((byte, index) => {
+    const value = byte.toString(16).padStart(2, '0');
+    return [4, 6, 8, 10].includes(index) ? `-${value}` : value;
+  }).join('');
+}
+
 interface StudioSetupScreenProps {
   onCompleteSetup: (newStudio: Provider) => void;
   onCancel: () => void;
@@ -115,7 +125,7 @@ export const StudioSetupScreen: React.FC<StudioSetupScreenProps> = ({
 
   const handleFinish = () => {
     const newProvider: Provider = {
-      id: `studio-${Date.now().toString().slice(-4)}`,
+      id: createUuid(),
       name: studioName.trim() || 'My Artisan Studio',
       category: category.trim() || 'Boutique Studio',
       rating: 5.0,

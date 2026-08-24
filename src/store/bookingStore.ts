@@ -191,6 +191,17 @@ export const useBookingStore = create<BookingState>()(
           currentConfirmedBooking:
             s.currentConfirmedBooking?.id === newBooking.id ? serverBooking : s.currentConfirmedBooking,
         }));
+        if (serverBooking.status === 'pending') {
+          void supabase.auth.getUser().then(({ data: currentAuth }) => {
+            if (!currentAuth.user) return;
+            return supabase.from('booking_requests').insert({
+              booking_id: serverBooking.id,
+              provider_id: serverBooking.providerId,
+              customer_id: currentAuth.user.id,
+              status: 'pending',
+            });
+          });
+        }
       })
       .catch(() => {
         // Keep local optimistic data when the backend is unavailable.
