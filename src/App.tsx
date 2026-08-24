@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen, Provider, Service, TimeSlot, UserProfile, UserRole, PaymentMethod } from './types';
 import { Colors } from './theme/colors';
 import { registerForPushNotifications, scheduleBookingReminder } from './services/pushNotifications';
+import { startSupabaseAuthRefresh } from './lib/supabase';
 
 // Stores
 import { useAuthStore } from './store/authStore';
@@ -55,13 +56,19 @@ export default function App() {
 
   // Hydrate auth session from AsyncStorage on launch
   useEffect(() => { hydrate(); }, []);
+  useEffect(() => startSupabaseAuthRefresh(), []);
+
+  const hydrateBookings = useBookingStore((s) => s.hydrateRemote);
+  const hydrateProviders = useProviderStore((s) => s.hydrateRemote);
 
   // Register for push notifications once authenticated
   useEffect(() => {
+    hydrateProviders().catch(() => {});
     if (isAuthenticated) {
       registerForPushNotifications().catch(() => {});
+      hydrateBookings().catch(() => {});
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, hydrateBookings, hydrateProviders]);
 
   // ── Booking Store ───────────────────────────────────────────────────────────
   const {

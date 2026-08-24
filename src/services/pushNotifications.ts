@@ -14,6 +14,7 @@ import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { Booking } from '../types';
+import { supabase } from '../lib/supabase';
 
 const PUSH_TOKEN_KEY = 'bookease_push_token';
 const REMINDER_KEY_PREFIX = 'bookease_reminder_';
@@ -57,6 +58,14 @@ export async function registerForPushNotifications(): Promise<string | null> {
     const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     const token = tokenData.data;
     await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
+    const { data: authData } = await supabase.auth.getUser();
+    if (authData.user) {
+      await supabase.from('push_tokens').upsert({
+        user_id: authData.user.id,
+        token,
+        platform: Platform.OS,
+      });
+    }
     return token;
   } catch {
     return null;

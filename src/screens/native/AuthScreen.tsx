@@ -5,7 +5,7 @@ import {
 import { Mail, Lock, User, Store, ArrowRight, Sparkles, CheckCircle2, ShieldCheck } from 'lucide-react-native';
 import { UserRole, UserProfile } from '../../types';
 import { useAuthStore } from '../../store/authStore';
-import { api, ApiError } from '../../api/client';
+import { supabase } from '../../lib/supabase';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 
@@ -16,6 +16,7 @@ interface AuthScreenProps {
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onContinueAsGuest }) => {
   const loginWithCredentials = useAuthStore((s) => s.loginWithCredentials);
+  const registerWithCredentials = useAuthStore((s) => s.registerWithCredentials);
   const authError = useAuthStore((s) => s.authError);
 
   const [authMode, setAuthMode] = useState<'signin' | 'register' | 'forgot'>('signin');
@@ -35,26 +36,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onContinu
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
-      await loginWithCredentials(email.trim(), password);
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 0) {
-        // No backend — fall back to local demo login
-        const user: UserProfile = {
-          id: `usr-${Date.now().toString().slice(-6)}`,
-          name: name.trim() || (authMode === 'register' ? 'New Member' : 'Eleanor Vance'),
-          email: email.trim() || 'member@bookease.app',
-          phone: '+1 (555) 234-8901',
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-          memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-          role: isRegisteringStudio ? 'provider' : 'customer',
-          hasStudio: isRegisteringStudio,
-          studioName: isRegisteringStudio ? (studioName.trim() || 'My Artisan Studio') : undefined,
-          studioCategory: isRegisteringStudio ? 'Boutique Studio' : undefined,
-          activePassesCount: 0,
-          pastPassesCount: 0,
-        };
-        onAuthSuccess(user, isRegisteringStudio ? 'provider' : 'customer');
+      if (authMode === 'register') {
+        await registerWithCredentials(
+          name.trim(),
+          email.trim(),
+          password,
+          isRegisteringStudio ? 'provider' : 'customer'
+        );
+      } else {
+        await loginWithCredentials(email.trim(), password);
       }
+    } catch {
+      // Supabase errors are exposed through authStore.authError.
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +57,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onContinu
     if (!email.trim()) return;
     setIsLoading(true);
     try {
-      await api.post('/auth/forgot-password', { email: email.trim() });
+      await supabase.auth.resetPasswordForEmail(email.trim());
     } catch {
       // Always show success — never confirm whether email exists (security best practice)
     } finally {

@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Camera } from 'lucide-react-native';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
+import { uploadAvatar } from '../../lib/storage';
 
 interface AvatarPickerProps {
   uri: string;
@@ -34,7 +35,8 @@ export const AvatarPicker: React.FC<AvatarPickerProps> = ({
       });
 
       if (!result.canceled && result.assets[0]?.uri) {
-        onPicked(result.assets[0].uri);
+        const uploadedUri = await uploadAvatar(result.assets[0].uri);
+        onPicked(uploadedUri);
       }
     } catch {
       Alert.alert('Photo Error', 'The photo could not be selected. Please try again.');

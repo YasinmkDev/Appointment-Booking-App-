@@ -18,7 +18,11 @@ import {
   INITIAL_PROVIDER_REQUESTS,
   INITIAL_TODAYS_AGENDA,
 } from '../data/mockData';
-import { api, ApiError } from '../api/client';
+import { supabase } from '../lib/supabase';
+import type { Database } from '../lib/database.types';
+
+type DatabaseProvider = Database['public']['Tables']['providers']['Row'];
+type DatabaseService = Database['public']['Tables']['services']['Row'];
 
 interface ProviderState {
   providers: Provider[];
@@ -65,6 +69,7 @@ interface ProviderState {
   getActiveDaysCount: () => number;
   getTodayBookingsCount: () => number;
   getWeekBookingsCount: (allBookings: Booking[]) => number;
+  hydrateRemote: () => Promise<void>;
 }
 
 function parseTimeToMinutes(timeStr: string): number {
@@ -102,6 +107,46 @@ export const useProviderStore = create<ProviderState>()(
   todaysAgenda: INITIAL_TODAYS_AGENDA,
   acceptedCount: 0,
   declinedCount: 0,
+
+  hydrateRemote: async () => {
+    const { data, error } = await supabase
+      .from('providers')
+      .select('*, services(*)')
+      .eq('is_verified', true) as unknown as {
+        data: Array<DatabaseProvider & { services: DatabaseService[] }> | null;
+        error: Error | null;
+      };
+    if (error || !data || data.length === 0) return;
+
+    const remoteProviders: Provider[] = data.map((provider) => ({
+      id: provider.id,
+      name: provider.name,
+      category: provider.category,
+      rating: Number(provider.rating),
+      reviewCount: provider.review_count,
+      distance: provider.distance,
+      bio: provider.bio,
+      image: provider.image_url,
+      nextAvailable: provider.next_available,
+      slotIntervalMinutes: provider.slot_interval_minutes,
+      bufferMinutes: provider.buffer_minutes,
+      instantConfirmation: provider.instant_confirmation,
+      timezone: provider.timezone,
+      address: provider.address ?? undefined,
+      isVerified: provider.is_verified,
+      services: (provider.services ?? []).map((service) => ({
+        id: service.id,
+        name: service.name,
+        description: service.description,
+        price: Number(service.price),
+        durationMinutes: service.duration_minutes,
+        category: service.category,
+        bufferMinutes: service.buffer_minutes,
+        isActive: service.is_active,
+      })),
+    }));
+    set({ providers: remoteProviders });
+  },
 
   addProvider: (provider) =>
     set((s) => ({ providers: [provider, ...s.providers] })),
@@ -169,17 +214,13 @@ export const useProviderStore = create<ProviderState>()(
       ),
       acceptedCount: s.acceptedCount + 1,
     }));
-    api.patch(`/booking-requests/${requestId}`, { status: 'accepted' })
-      .catch((err: unknown) => {
-        if (err instanceof ApiError && err.status === 0) {
-          // No backend — proceed with delayed removal
-          setTimeout(() => set((s) => ({ bookingRequests: s.bookingRequests.filter((r) => r.id !== requestId) })), 800);
+    void supabase.from('booking_requests').update({ status: 'accepted' }).eq('id', requestId)
+      .then(({ error }) => {
+        if (error) {
+          set({ bookingRequests: prev, acceptedCount: get().acceptedCount - 1 });
           return;
         }
-        set({ bookingRequests: prev, acceptedCount: get().acceptedCount - 1 });
-      })
-      .then(() => {
-        setTimeout(() => set((s) => ({ bookingRequests: s.bookingRequests.filter((r) => r.id !== requestId) })), 800);
+        set((s) => ({ bookingRequests: s.bookingRequests.filter((r) => r.id !== requestId) }));
       });
   },
 
@@ -191,16 +232,13 @@ export const useProviderStore = create<ProviderState>()(
       ),
       declinedCount: s.declinedCount + 1,
     }));
-    api.patch(`/booking-requests/${requestId}`, { status: 'declined' })
-      .catch((err: unknown) => {
-        if (err instanceof ApiError && err.status === 0) {
-          setTimeout(() => set((s) => ({ bookingRequests: s.bookingRequests.filter((r) => r.id !== requestId) })), 800);
+    void supabase.from('booking_requests').update({ status: 'declined' }).eq('id', requestId)
+      .then(({ error }) => {
+        if (error) {
+          set({ bookingRequests: prev, declinedCount: get().declinedCount - 1 });
           return;
         }
-        set({ bookingRequests: prev, declinedCount: get().declinedCount - 1 });
-      })
-      .then(() => {
-        setTimeout(() => set((s) => ({ bookingRequests: s.bookingRequests.filter((r) => r.id !== requestId) })), 800);
+        set((s) => ({ bookingRequests: s.bookingRequests.filter((r) => r.id !== requestId) }));
       });
   },
 

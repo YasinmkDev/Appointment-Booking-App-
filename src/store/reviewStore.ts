@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../lib/supabase';
 
 export interface Review {
   id: string;
@@ -28,12 +29,20 @@ export const useReviewStore = create<ReviewState>()(
       reviews: [],
 
       addReview: (review) =>
-        set((s) => ({
-          reviews: [
-            ...s.reviews,
-            { ...review, id: `rev-${Date.now()}`, createdAt: new Date().toISOString() },
-          ],
-        })),
+        set((s) => {
+          const created = { ...review, id: `rev-${Date.now()}`, createdAt: new Date().toISOString() };
+          void supabase.auth.getUser().then(({ data }) => {
+            if (!data.user) return;
+            void supabase.from('reviews').insert({
+              booking_id: review.bookingId,
+              customer_id: data.user.id,
+              provider_id: review.providerId,
+              rating: review.rating,
+              comment: review.comment,
+            });
+          });
+          return { reviews: [...s.reviews, created] };
+        }),
 
       getReviewsForProvider: (providerId) =>
         get().reviews.filter((r) => r.providerId === providerId),
